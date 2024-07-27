@@ -71,6 +71,110 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](LICENSE).
+
 # hospyta
 
-DATABASE SCHEMA
+## Prerequisites
+
+Make sure you have the following installed:
+
+- [Node.js](https://nodejs.org/) (v14.x or later)
+- [Yarn](https://classic.yarnpkg.com/en/docs/install/) (v1.22 or later)
+
+## Installation
+
+### 1. Clone the Repository
+
+Clone the repository to your local machine:
+
+```bash
+git clone hhttps://github.com/harwarl/hospyta.git
+```
+
+```bash
+cd hospyta
+```
+
+### 2. Install Dependencies
+
+Install the project dependencies using Yarn:
+
+```bash
+yarn install
+```
+
+### 3. Set Up the Database
+
+Make sure you have a MongoDB instance running and accessible. The default configuration assumes MongoDB is running locally on port 27017.
+
+### 4. create an env file
+
+```bash
+cd .env
+```
+
+### 5. Run the Application
+
+```bash
+yarn start:dev
+```
+
+# Schema Design
+
+## 1. USER
+
+The User entity represents a user in the system.
+
+\_id: ObjectId - Unique identifier for the user.
+firstName: string - User's first name.
+lastName: string - User's last name.
+username: string - Unique username for the user.
+password: string - Hashed password for authentication.
+email: string - Unique email address for the user.
+createdAt: timestamp - Date and time when the user was created.
+updatedAt: timestamp - Date and time when the user was last updated.
+bio: string - A short biography about the user.
+profilePic: string - URL to the user's profile picture.
+posts: [Post] - List of posts authored by the user.
+favourites: [Post] - List of posts favorited by the user.
+dislikes: [Post] - List of posts disliked by the user. 2. Post
+
+## 2. POST
+
+The Post entity represents a post created by a user.
+
+\_id: ObjectId - Unique identifier for the post.
+slug: string - Unique slug for the post.
+title: string - Title of the post.
+content: string - Content of the post.
+categories: [string] - List of categories associated with the post.
+likes: number - Number of likes on the post.
+dislikes: number - Number of dislikes on the post.
+views: number - Number of views of the post.
+createdAt: timestamp - Date and time when the post was created.
+updatedAt: timestamp - Date and time when the post was last updated.
+author: User - The user who authored the post.
+authorId: string - The ID of the user who authored the post. 3. Comment
+
+## 3. Comment
+
+The Comment entity represents a comment made on a post.
+
+\_id: ObjectId - Unique identifier for the comment.
+postSlug: string - The slug of the post the comment belongs to.
+userId: string - ID of the user who made the comment.
+text: string - Content of the comment.
+replies: [Reply] - List of replies to the comment.
+createdAt: timestamp - Date and time when the comment was created.
+updatedAt: timestamp - Date and time when the comment was last updated. 4. Reply
+
+## 4. Reply
+
+The Reply entity represents a reply to a comment.
+
+\_id: ObjectId - Unique identifier for the reply.
+commentId: string - ID of the comment being replied to.
+userId: string - ID of the user who made the reply.
+text: string - Content of the reply.
+createdAt: timestamp - Date and time when the reply was created.
+updatedAt: timestamp - Date and time when the reply was last updated.

@@ -306,7 +306,7 @@ export class PostService {
     const comment = await this.findCommentById(commentId);
 
     const reply = new Reply();
-    reply.comment = comment;
+    reply.comment = comment._id;
     reply.commentId = comment._id.toString();
     reply.userId = currentUserId.toString();
     reply.text = text;

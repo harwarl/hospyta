@@ -1,5 +1,4 @@
 import { Column, Entity, ObjectIdColumn } from 'typeorm';
-import { Comment } from './comment.entity';
 
 @Entity({ name: 'commentReplies' })
 export class Reply {
@@ -16,7 +15,7 @@ export class Reply {
   text: string;
 
   @Column()
-  comment: Comment;
+  comment: string;
 
   @Column({
     type: 'timestamp',
