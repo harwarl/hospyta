@@ -40,7 +40,7 @@ export class UserService {
     }
 
     const newUser = new User();
-    Object.assign(newUser, createUserDto);
+    Object.assign(newUser, { ...createUserDto, favourites: [] });
     return await this.userRepository.save(newUser);
   }
 
@@ -82,7 +82,7 @@ export class UserService {
     userId: ObjectId,
     updateUserDto: UpdateUserDto,
   ): Promise<User> {
-    const user = await this.findById(new ObjectId(userId));
+    const user = await this.findById(userId);
     Object.assign(user, updateUserDto);
     return await this.userRepository.save(user);
   }

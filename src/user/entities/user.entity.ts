@@ -8,12 +8,10 @@ import {
   UpdateDateColumn,
   BeforeInsert,
   OneToMany,
-  ManyToMany,
-  JoinTable,
 } from 'typeorm';
 import { hash } from 'bcrypt';
-import { Comment } from 'src/post/entities/comment.entity';
-import { Reply } from 'src/post/entities/reply.entity';
+// import { Comment } from 'src/post/entities/comment.entity';
+// import { Reply } from 'src/post/entities/reply.entity';
 
 @Entity()
 export class User {
@@ -57,18 +55,19 @@ export class User {
   @OneToMany(() => Post, (post) => post.author)
   posts: Post[];
 
-  @ManyToMany(() => Post, (Post) => Post.favouritedBy)
-  @JoinTable()
+  @Column({ default: [] })
   favourites: Post[];
 
-  @ManyToMany(() => Comment, (comment) => comment.userId)
-  @JoinTable()
-  comments: Comment[];
+  @Column({ default: [] })
+  dislikes: Post[];
 
-  @ManyToMany(() => Reply, (replies) => replies.userId)
-  @JoinTable()
-  replies: Reply[];
+  // @ManyToMany(() => Comment, (comment) => comment.userId)
+  // @JoinTable()
+  // comments: Comment[];
 
+  // @ManyToMany(() => Reply, (replies) => replies.userId)
+  // @JoinTable()
+  // replies: Reply[];
   @BeforeInsert()
   async hashPassword() {
     this.password = await hash(this.password, 10);

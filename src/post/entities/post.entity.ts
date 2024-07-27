@@ -7,7 +7,6 @@ import {
   ObjectIdColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToMany,
 } from 'typeorm';
 
 @Entity({ name: 'posts' })
@@ -51,9 +50,6 @@ export class Post {
 
   @ManyToOne(() => User, (user) => user.posts, { eager: true })
   author: User;
-
-  @ManyToMany(() => User, (user) => user.favourites)
-  favouritedBy: User[];
 
   @Column()
   authorId: string;

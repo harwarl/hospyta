@@ -1,10 +1,9 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
-import { Reply } from './reply.entity';
+import { Column, Entity, ObjectIdColumn } from 'typeorm';
 
 @Entity({ name: 'comments' })
 export class Comment {
-  @PrimaryGeneratedColumn()
-  _id: number;
+  @ObjectIdColumn()
+  _id: string;
 
   @Column()
   postSlug: string;
@@ -15,9 +14,9 @@ export class Comment {
   @Column()
   text: string;
 
-  @Column()
-  @OneToMany(() => Reply, (reply) => reply.comment)
-  replies: Reply[];
+  // @OneToMany(() => Reply, (reply) => reply.comment)
+  @Column({ default: [] })
+  replies: string[];
 
   @Column({
     type: 'timestamp',
@@ -28,6 +27,7 @@ export class Comment {
   @Column({
     type: 'timestamp',
     default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
 }

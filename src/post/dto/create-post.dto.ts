@@ -8,5 +8,5 @@ export class CreatePostDto {
   readonly content: string;
 
   @IsNotEmpty()
-  readonly category: string[];
+  readonly categories: string[];
 }

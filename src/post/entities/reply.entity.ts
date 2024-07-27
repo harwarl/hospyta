@@ -1,9 +1,9 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, ObjectIdColumn } from 'typeorm';
 import { Comment } from './comment.entity';
 
 @Entity({ name: 'commentReplies' })
 export class Reply {
-  @PrimaryGeneratedColumn()
+  @ObjectIdColumn()
   _id: string;
 
   @Column()
@@ -15,7 +15,7 @@ export class Reply {
   @Column()
   text: string;
 
-  @ManyToOne(() => Comment, (comment) => comment.replies, { eager: true })
+  @Column()
   comment: Comment;
 
   @Column({

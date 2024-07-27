@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/user/entities/user.entity';
-import { DeleteResult, MongoRepository, ObjectId } from 'typeorm';
+import { DeleteResult, MongoRepository } from 'typeorm';
 import { Post } from './entities/post.entity';
 import { IPostsResponse } from './types/postsReponse.interface';
 import { IPostResponse } from './types/postResponse.interface';
@@ -10,6 +10,7 @@ import slugify from 'slugify';
 import { ICommentResponse } from './types/commentResponse.interface';
 import { Reply } from './entities/reply.entity';
 import { Comment } from './entities/comment.entity';
+import { ObjectId } from 'mongodb';
 
 @Injectable()
 export class PostService {
@@ -51,7 +52,10 @@ export class PostService {
     }
 
     pipeline.push({
-      $sort: { createdAt: -1 },
+      $sort: {
+        createdAt: -1, // Primary sort by createdAt
+        likes: -1, // Secondary sort by likes
+      },
     });
 
     if (query.limit) {
@@ -66,23 +70,12 @@ export class PostService {
       });
     }
 
-    let favouriteIds: string[] = [];
-    if (currentUserId) {
-      const currentUser = await this.userRepository.findOne({
-        where: { _id: currentUserId },
-        relations: ['favourites'],
-      });
-      favouriteIds = currentUser.favourites.map((favourite) =>
-        favourite._id.toString(),
-      );
-    }
-
     const posts = await this.postRepository.aggregate(pipeline).toArray();
-    const postsWithFavourites = posts.map((post) => {
-      const likedPosts = favouriteIds.includes(post._id.toString());
-      return { ...post, liked: likedPosts };
-    });
-    return this.buildPostsResponse(postsWithFavourites);
+    // const postsWithFavourites = posts.map((post) => {
+    //   const likedPosts = favouriteIds.includes(post._id.toString());
+    //   return { ...post, liked: likedPosts };
+    // });
+    return this.buildPostsResponse(posts);
   }
   /* -------------------------------------------------------------------------------------------------
    * POST CRUD
@@ -101,6 +94,9 @@ export class PostService {
     newPost.slug = this.getSlug(createPostDto.title);
     newPost.author = currentUser;
     newPost.authorId = currentUser._id.toString();
+    newPost.likes = 0;
+    newPost.dislikes = 0;
+    newPost.views = 0;
     const post = await this.postRepository.save(newPost);
     return await this.buildPostResponse(post);
   }
@@ -111,10 +107,12 @@ export class PostService {
     currentUserId: string,
   ): Promise<IPostResponse> {
     const post = await this.findPostBySlug(slug);
+
     if (!post) {
       throw new HttpException('Post does not exist', HttpStatus.NOT_FOUND);
     }
-    if (post.author._id.toString() !== currentUserId) {
+
+    if (post.authorId.toString() !== currentUserId.toString()) {
       throw new HttpException('You are not an author', HttpStatus.UNAUTHORIZED);
     }
 
@@ -129,18 +127,27 @@ export class PostService {
     if (!post) {
       throw new HttpException('Post does not exist', HttpStatus.NOT_FOUND);
     }
-    if (post.author._id.toString() !== currentUserId)
+    if (post.author._id.toString() !== currentUserId.toString())
       throw new HttpException('You are not an author', HttpStatus.NOT_FOUND);
 
     return await this.postRepository.delete({ slug: slug });
   }
 
-  async getSinglePostBySlug(slug: string): Promise<IPostResponse> {
+  async getSinglePostBySlug(
+    slug: string,
+    currentUserId: string,
+  ): Promise<IPostResponse> {
     const post = await this.findPostBySlug(slug);
     if (!post) {
       throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
     }
-    post.views += 1;
+    if (!post.views) {
+      post.views = 0;
+    } else {
+      if (currentUserId !== post.authorId) {
+        post.views++;
+      }
+    }
     const savedPost = await this.postRepository.save(post);
 
     return await this.buildPostResponse(savedPost);
@@ -151,29 +158,36 @@ export class PostService {
 
   async likePost(currentUserId: string, slug: string): Promise<IPostResponse> {
     const post = await this.findBySlug(slug);
+    if (!post) {
+      throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
+    }
+
     const user = await this.userRepository.findOne({
       where: { _id: new ObjectId(currentUserId) },
-      relations: ['favourites'],
     });
     if (!user) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
 
-    const isNotFavourited =
-      user.favourites.findIndex((favPost) => {
-        favPost._id.toString() === post._id.toString();
-      }) === -1;
-
-    if (isNotFavourited) {
-      //Update user and post
-      user.favourites.push(post);
-      post.likes += 1;
-      await this.userRepository.save(user);
-      await this.postRepository.save(post);
+    if (!user.favourites) {
+      user.favourites = [];
     }
+
+    const isAlreadyFavourited = user.favourites.some(
+      (favPost) => favPost._id.toString() === post._id.toString(),
+    );
+
+    if (!isAlreadyFavourited) {
+      user.favourites.push(post);
+      post.likes = (post.likes || 0) + 1;
+    }
+
+    await this.userRepository.save(user);
+    await this.postRepository.save(post);
 
     return await this.buildPostResponse(post);
   }
+
   /* -------------------------------------------------------------------------------------------------
    * DISLIKES FUNCTIONS
    * -----------------------------------------------------------------------------------------------*/
@@ -183,27 +197,41 @@ export class PostService {
     slug: string,
   ): Promise<IPostResponse> {
     const post = await this.findBySlug(slug);
+    if (!post) {
+      throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
+    }
+
     const user = await this.userRepository.findOne({
       where: { _id: new ObjectId(currentUserId) },
-      relations: ['favourites'],
     });
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
 
-    //check if post is liked by the user
-    const likedPostIndex = user.favourites.findIndex((likedPost) => {
-      likedPost._id.toString() === post._id.toString();
-    });
+    if (!user.dislikes) {
+      user.dislikes = [];
+    }
 
-    //if Post is already liked by the user
+    const likedPostIndex = user.favourites.findIndex(
+      (likedPost) => likedPost._id.toString() === post._id.toString(),
+    );
+
+    const dislikePostIndex = user.dislikes.findIndex(
+      (dislikedPost) => dislikedPost._id.toString() === post._id.toString(),
+    );
+
     if (likedPostIndex >= 0) {
       user.favourites.splice(likedPostIndex, 1);
-      post.dislikes += 1;
-      post.likes -= 1;
-      await this.userRepository.save(user);
-      await this.postRepository.save(post);
-    } else {
-      post.dislikes += 1;
-      await this.postRepository.save(post);
+      post.likes = (post.likes || 0) - 1;
     }
+
+    if (dislikePostIndex < 0) {
+      user.dislikes.push(post);
+      post.dislikes = (post.dislikes || 0) + 1;
+    }
+
+    await this.userRepository.save(user);
+    await this.postRepository.save(post);
 
     return await this.buildPostResponse(post);
   }
@@ -226,35 +254,44 @@ export class PostService {
       },
     });
 
+    let comment;
     if (!commentExists) {
+      console.log('Creating new comment');
       const commentOnPost = new Comment();
-      commentOnPost.postSlug = post.slug;
-      commentOnPost.userId = currentUserId;
-      commentOnPost.text = text;
-      await this.commentRepository.save(commentOnPost);
+      Object.assign(commentOnPost, {
+        postSlug: post.slug,
+        userId: currentUserId.toString(),
+        text,
+        replies: [],
+      });
+      comment = await this.commentRepository.save(commentOnPost);
     } else {
-      commentExists['text'] = text;
-      await this.commentRepository.save(commentExists);
+      commentExists.text = text;
+      comment = await this.commentRepository.save(commentExists);
     }
 
     return {
       post,
-      comment: commentExists.text,
+      comment: comment.text,
     };
   }
 
   async uncommentPost(
     currentUserId: string,
     slug: string,
+    commentId: string,
   ): Promise<IPostResponse> {
     const post = await this.findBySlug(slug);
 
     const commentExists = await this.commentRepository.findOne({
       where: {
-        postSlug: slug,
-        commenterId: currentUserId,
+        _id: new ObjectId(commentId),
       },
     });
+
+    if (!commentExists) {
+      throw new HttpException('Comment not found', HttpStatus.NOT_FOUND);
+    }
 
     await this.commentRepository.delete({ _id: commentExists._id });
 
@@ -271,10 +308,11 @@ export class PostService {
     const reply = new Reply();
     reply.comment = comment;
     reply.commentId = comment._id.toString();
-    reply.userId = currentUserId;
+    reply.userId = currentUserId.toString();
     reply.text = text;
     const savedReply = await this.replyRepository.save(reply);
-    comment.replies.push(savedReply);
+    comment.replies.push(savedReply._id);
+    console.log(comment.replies);
     await this.commentRepository.save(comment);
     return reply;
   }
@@ -288,7 +326,7 @@ export class PostService {
     const reply = await this.findReplyById(replyId);
     //find the replyId index
     const replyIndex = comment.replies.findIndex((reply) => {
-      reply._id.toString() === replyId;
+      reply.toString() === replyId;
     });
 
     if (replyIndex >= 0) {

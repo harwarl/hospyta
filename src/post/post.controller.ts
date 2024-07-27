@@ -22,7 +22,7 @@ import { DeleteResult } from 'typeorm';
 import { ICommentResponse } from './types/commentResponse.interface';
 import { Reply } from './entities/reply.entity';
 
-@Controller('post')
+@Controller('posts')
 export class PostController {
   constructor(private readonly postService: PostService) {}
 
@@ -50,8 +50,11 @@ export class PostController {
 
   @Get(':slug')
   @UseGuards(AuthGuard)
-  async getSinglePost(@Param('slug') slug: string): Promise<IPostResponse> {
-    return await this.postService.getSinglePostBySlug(slug);
+  async getSinglePost(
+    @User('_id') currentUserId: string,
+    @Param('slug') slug: string,
+  ): Promise<IPostResponse> {
+    return await this.postService.getSinglePostBySlug(slug, currentUserId);
   }
 
   @Put(':slug')
@@ -87,18 +90,23 @@ export class PostController {
   async commentArticle(
     @User('_id') currentUserId: string,
     @Param('slug') slug: string,
-    @Body('comment') text: string,
+    @Body('comment') comment: { text: string },
   ): Promise<ICommentResponse> {
-    return await this.postService.commentPost(currentUserId, slug, text);
+    return await this.postService.commentPost(
+      currentUserId,
+      slug,
+      comment.text,
+    );
   }
 
-  @Delete(':slug/comment')
+  @Delete(':slug/comment/:commentId')
   @UseGuards(AuthGuard)
   async uncommentArticle(
     @User('_id') currentUserId,
     @Param('slug') slug: string,
+    @Param('commentId') commentId: string,
   ): Promise<IPostResponse> {
-    return await this.postService.uncommentPost(currentUserId, slug);
+    return await this.postService.uncommentPost(currentUserId, slug, commentId);
   }
 
   /* -------------------------------------------------------------------------------------------------
@@ -131,9 +139,13 @@ export class PostController {
   async replyComment(
     @User('_id') currentUserId: string,
     @Param('commentId') commentId: string,
-    @Body('reply') reply: string,
+    @Body('reply') reply: { reply: string },
   ): Promise<Reply> {
-    return await this.postService.addReply(commentId, currentUserId, reply);
+    return await this.postService.addReply(
+      commentId,
+      currentUserId,
+      reply.reply,
+    );
   }
 
   @Delete(':slug/comment/:commentId/reply/:replyId')

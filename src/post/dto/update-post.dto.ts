@@ -1,8 +1,8 @@
 export class UpdatePostDto {
   //title of the post
-  readonly title: string;
+  title: string;
   //content of the post
-  readonly content: string;
+  content: string;
   //category of the post
-  readonly category: string;
+  category: string;
 }
